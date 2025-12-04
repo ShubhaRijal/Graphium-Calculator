@@ -4,14 +4,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { statistics, linearRegression, polynomialRegression } from '@/lib/mathEngine';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Line } from 'recharts';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  ScatterChart, Scatter, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ComposedChart
+} from 'recharts';
+
+type ChartType = 'histogram' | 'scatter' | 'line' | 'area' | 'pie' | 'radar' | 'box';
+
+const CHART_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--accent))',
+  'hsl(var(--warning))',
+  'hsl(var(--success))',
+  'hsl(186, 100%, 50%)',
+  'hsl(220, 100%, 60%)',
+  'hsl(280, 100%, 60%)',
+  'hsl(340, 100%, 60%)',
+];
 
 export function StatisticsCalculator() {
   const [dataInput, setDataInput] = useState('1, 2, 3, 4, 5, 6, 7, 8, 9, 10');
   const [xDataInput, setXDataInput] = useState('1, 2, 3, 4, 5');
   const [yDataInput, setYDataInput] = useState('2.1, 4.0, 5.9, 8.1, 10.0');
   const [polyDegree, setPolyDegree] = useState(1);
+  const [chartType, setChartType] = useState<ChartType>('histogram');
 
   const parseData = (input: string): number[] => {
     return input
@@ -47,16 +67,54 @@ export function StatisticsCalculator() {
     const binCount = Math.min(10, Math.ceil(Math.sqrt(data.length)));
     const binSize = (max - min) / binCount || 1;
     
-    const bins: { range: string; count: number }[] = [];
+    const bins: { range: string; count: number; value: number }[] = [];
     for (let i = 0; i < binCount; i++) {
       const start = min + i * binSize;
       const end = start + binSize;
       const count = data.filter(v => v >= start && (i === binCount - 1 ? v <= end : v < end)).length;
-      bins.push({ range: `${start.toFixed(1)}-${end.toFixed(1)}`, count });
+      bins.push({ range: `${start.toFixed(1)}-${end.toFixed(1)}`, count, value: count });
     }
     
     return bins;
   }, [data]);
+
+  const lineData = useMemo(() => {
+    return data.map((value, index) => ({ index: index + 1, value }));
+  }, [data]);
+
+  const pieData = useMemo(() => {
+    if (data.length === 0) return [];
+    const total = data.reduce((a, b) => a + Math.abs(b), 0);
+    return data.slice(0, 8).map((value, index) => ({
+      name: `Value ${index + 1}`,
+      value: Math.abs(value),
+      percentage: total > 0 ? ((Math.abs(value) / total) * 100).toFixed(1) : 0
+    }));
+  }, [data]);
+
+  const radarData = useMemo(() => {
+    if (data.length < 3) return [];
+    return data.slice(0, 8).map((value, index) => ({
+      subject: `D${index + 1}`,
+      value: value,
+      fullMark: Math.max(...data)
+    }));
+  }, [data]);
+
+  const boxPlotStats = useMemo(() => {
+    if (data.length < 5) return null;
+    const sorted = [...data].sort((a, b) => a - b);
+    const q1Index = Math.floor(sorted.length * 0.25);
+    const q3Index = Math.floor(sorted.length * 0.75);
+    return {
+      min: sorted[0],
+      q1: sorted[q1Index],
+      median: stats?.median || 0,
+      q3: sorted[q3Index],
+      max: sorted[sorted.length - 1],
+      iqr: sorted[q3Index] - sorted[q1Index]
+    };
+  }, [data, stats]);
 
   const scatterData = useMemo(() => {
     return xData.map((x, i) => ({ x, y: yData[i] })).filter(p => !isNaN(p.y));
@@ -129,28 +187,175 @@ export function StatisticsCalculator() {
               </div>
 
               <div className="glass-panel p-4">
-                <h3 className="text-sm font-medium mb-3">Histogram</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={histogramData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
-                    <XAxis 
-                      dataKey="range" 
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
-                    />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        background: 'hsl(var(--popover))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">Data Visualization</h3>
+                  <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="histogram">Histogram</SelectItem>
+                      <SelectItem value="line">Line Chart</SelectItem>
+                      <SelectItem value="area">Area Chart</SelectItem>
+                      <SelectItem value="scatter">Scatter Plot</SelectItem>
+                      <SelectItem value="pie">Pie Chart</SelectItem>
+                      <SelectItem value="radar">Radar Chart</SelectItem>
+                      <SelectItem value="box">Box Plot</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <ResponsiveContainer width="100%" height={250}>
+                  {chartType === 'histogram' ? (
+                    <BarChart data={histogramData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
+                      <XAxis 
+                        dataKey="range" 
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  ) : chartType === 'line' ? (
+                    <LineChart data={lineData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
+                      <XAxis dataKey="index" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
+                    </LineChart>
+                  ) : chartType === 'area' ? (
+                    <AreaChart data={lineData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
+                      <XAxis dataKey="index" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.3)" />
+                    </AreaChart>
+                  ) : chartType === 'scatter' ? (
+                    <ScatterChart>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
+                      <XAxis type="number" dataKey="index" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis type="number" dataKey="value" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Scatter data={lineData} fill="hsl(var(--primary))" />
+                    </ScatterChart>
+                  ) : chartType === 'pie' ? (
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ name, percentage }) => `${percentage}%`}
+                      >
+                        {pieData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </PieChart>
+                  ) : chartType === 'radar' ? (
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="hsl(var(--graph-grid))" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <PolarRadiusAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                      <Radar dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.3)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </RadarChart>
+                  ) : (
+                    <ComposedChart data={boxPlotStats ? [boxPlotStats] : []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--graph-grid))" />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--popover))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                        formatter={(value: number, name: string) => [value.toFixed(4), name]}
+                      />
+                      <Bar dataKey="min" fill="hsl(var(--accent))" name="Min" />
+                      <Bar dataKey="q1" fill="hsl(var(--primary) / 0.6)" name="Q1" />
+                      <Bar dataKey="median" fill="hsl(var(--primary))" name="Median" />
+                      <Bar dataKey="q3" fill="hsl(var(--primary) / 0.6)" name="Q3" />
+                      <Bar dataKey="max" fill="hsl(var(--accent))" name="Max" />
+                    </ComposedChart>
+                  )}
                 </ResponsiveContainer>
+                
+                {chartType === 'box' && boxPlotStats && (
+                  <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">Q1</div>
+                      <div className="font-mono text-primary">{boxPlotStats.q1.toFixed(2)}</div>
+                    </div>
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">Median</div>
+                      <div className="font-mono text-primary">{boxPlotStats.median.toFixed(2)}</div>
+                    </div>
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">Q3</div>
+                      <div className="font-mono text-primary">{boxPlotStats.q3.toFixed(2)}</div>
+                    </div>
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">IQR</div>
+                      <div className="font-mono text-primary">{boxPlotStats.iqr.toFixed(2)}</div>
+                    </div>
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">Range</div>
+                      <div className="font-mono text-primary">{(boxPlotStats.max - boxPlotStats.min).toFixed(2)}</div>
+                    </div>
+                    <div className="glass-panel p-2 text-center">
+                      <div className="text-muted-foreground">Spread</div>
+                      <div className="font-mono text-primary">{((boxPlotStats.iqr / boxPlotStats.median) * 100).toFixed(1)}%</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
