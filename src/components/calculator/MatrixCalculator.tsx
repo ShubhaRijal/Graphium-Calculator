@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { evaluate } from '@/lib/mathEngine';
 import { Plus, Minus, Grid3X3 } from 'lucide-react';
 
-type MatrixOperation = 'add' | 'subtract' | 'multiply' | 'determinant' | 'inverse' | 'transpose' | 'eigenvalues' | 'rref' | 'lu';
+type MatrixOperation = 'add' | 'subtract' | 'multiply' | 'determinant' | 'inverse' | 'transpose' | 'eigenvalues' | 'rref' | 'ref' | 'lu' | 'rank' | 'trace' | 'power';
 
 export function MatrixCalculator() {
   const [rowsA, setRowsA] = useState(3);
@@ -76,6 +76,77 @@ export function MatrixCalculator() {
       const matB = matrixToString(matrixB);
       
       let expression = '';
+      let customResult = '';
+      
+      // Helper function to perform row reduction
+      const performRowReduction = (mat: number[][], reduced: boolean): string => {
+        const m = mat.map(row => [...row]); // Clone matrix
+        const rows = m.length;
+        const cols = m[0].length;
+        let lead = 0;
+        
+        for (let r = 0; r < rows; r++) {
+          if (lead >= cols) break;
+          
+          let i = r;
+          while (m[i][lead] === 0) {
+            i++;
+            if (i === rows) {
+              i = r;
+              lead++;
+              if (lead === cols) {
+                return formatMatrix(m);
+              }
+            }
+          }
+          
+          // Swap rows
+          [m[i], m[r]] = [m[r], m[i]];
+          
+          // Scale to make leading coefficient 1 (for RREF)
+          if (reduced) {
+            const lv = m[r][lead];
+            if (lv !== 0) {
+              m[r] = m[r].map(val => val / lv);
+            }
+          }
+          
+          // Eliminate column entries
+          for (let i = 0; i < rows; i++) {
+            if (i !== r) {
+              const lv = m[i][lead];
+              if (reduced || i > r) {
+                m[i] = m[i].map((val, j) => val - lv * m[r][j]);
+              }
+            }
+          }
+          
+          lead++;
+        }
+        
+        return formatMatrix(m);
+      };
+      
+      const formatMatrix = (m: number[][]): string => {
+        return '[\n' + m.map(row => 
+          '  [' + row.map(v => {
+            const rounded = Math.round(v * 10000) / 10000;
+            return rounded === 0 ? '0' : rounded.toString();
+          }).join(', ') + ']'
+        ).join(',\n') + '\n]';
+      };
+      
+      const parseMatrix = (mat: string[][]): number[][] => {
+        return mat.map(row => row.map(cell => {
+          try {
+            const result = evaluate(cell);
+            return result.error ? 0 : parseFloat(result.value);
+          } catch {
+            return parseFloat(cell) || 0;
+          }
+        }));
+      };
+      
       switch (operation) {
         case 'add':
           expression = `${matA} + ${matB}`;
@@ -99,12 +170,34 @@ export function MatrixCalculator() {
           expression = `eigs(${matA}).values`;
           break;
         case 'rref':
-          // Reduced row echelon form using math.js
-          expression = `${matA}`;
+          customResult = performRowReduction(parseMatrix(matrixA), true);
+          break;
+        case 'ref':
+          customResult = performRowReduction(parseMatrix(matrixA), false);
           break;
         case 'lu':
           expression = `lup(${matA})`;
           break;
+        case 'rank':
+          // Calculate rank by counting non-zero rows in RREF
+          const rrefResult = performRowReduction(parseMatrix(matrixA), true);
+          const nonZeroRows = rrefResult.split('\n').filter(line => {
+            const nums = line.match(/-?\d+\.?\d*/g);
+            return nums && nums.some(n => parseFloat(n) !== 0);
+          }).length;
+          customResult = `Rank: ${nonZeroRows}`;
+          break;
+        case 'trace':
+          expression = `trace(${matA})`;
+          break;
+        case 'power':
+          expression = `${matA} ^ 2`;
+          break;
+      }
+
+      if (customResult) {
+        setResult(customResult);
+        return;
       }
 
       const calcResult = evaluate(expression);
@@ -162,8 +255,13 @@ export function MatrixCalculator() {
             <SelectItem value="determinant">det(A) (Determinant)</SelectItem>
             <SelectItem value="inverse">A⁻¹ (Inverse)</SelectItem>
             <SelectItem value="transpose">Aᵀ (Transpose)</SelectItem>
+            <SelectItem value="rref">RREF (Reduced Row Echelon)</SelectItem>
+            <SelectItem value="ref">REF (Row Echelon Form)</SelectItem>
+            <SelectItem value="rank">Rank</SelectItem>
+            <SelectItem value="trace">Trace (Sum of Diagonal)</SelectItem>
             <SelectItem value="eigenvalues">Eigenvalues</SelectItem>
             <SelectItem value="lu">LU Decomposition</SelectItem>
+            <SelectItem value="power">A² (Matrix Power)</SelectItem>
           </SelectContent>
         </Select>
       </div>
