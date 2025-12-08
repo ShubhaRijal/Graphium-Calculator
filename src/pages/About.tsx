@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import graphiumLogo from '@/assets/graphium-logo.png';
+import msStudiosLogo from '@/assets/ms-studios-logo.png';
 import { ArrowLeft, Github, Calculator, Sigma, LineChart, Atom, Users, Target, Lightbulb, Rocket } from 'lucide-react';
 
 export default function About() {
@@ -146,13 +147,13 @@ export default function About() {
               <Users className="h-4 w-4 text-primary" />
               <span className="text-sm text-primary">Meet the Team</span>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold">The Creators</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">Developer</h2>
           </div>
           
           {/* MS Studios Card */}
           <div className="glass-panel p-8 md:p-10 text-center group hover:border-primary/50 transition-all max-w-2xl mx-auto">
-            <div className="w-28 h-28 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center ring-4 ring-primary/20">
-              <span className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">MS</span>
+            <div className="w-28 h-28 mx-auto mb-6 rounded-full overflow-hidden ring-4 ring-primary/20">
+              <img src={msStudiosLogo} alt="MS Studios" className="w-full h-full object-cover" />
             </div>
             <h3 className="text-2xl font-bold mb-2">MS Studios</h3>
             <p className="text-primary mb-4">Developers of Graphium</p>
@@ -160,16 +161,12 @@ export default function About() {
               A duo of passionate students building tools that make complex mathematics accessible to everyone. 
               We create elegant, powerful solutions for students who demand more from their tools.
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center">
               <Button variant="outline" size="sm" asChild className="hover:bg-primary hover:text-primary-foreground transition-colors">
                 <a href="https://github.com/ShubhaRijal" target="_blank" rel="noopener noreferrer">
                   <Github className="h-4 w-4 mr-2" />
-                  S's GitHub
+                  MS Studios Github
                 </a>
-              </Button>
-              <Button variant="outline" size="sm" disabled className="opacity-50">
-                <Github className="h-4 w-4 mr-2" />
-                M's GitHub (Soon)
               </Button>
             </div>
           </div>
